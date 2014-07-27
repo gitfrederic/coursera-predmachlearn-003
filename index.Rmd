@@ -55,7 +55,27 @@ The first step in building the algorithm was to choose appropriate features from
 
 The dataset is available at [http://groupware.les.inf.puc-rio.br/har](http://groupware.les.inf.puc-rio.br/har) in the "Weight Lifting Exercises Dataset" section.
 
-The features were chosen on the basis that the majority of its entries contained valid (i.e. non-empty/non-NA) values and that they were meaningful for prediction purposes (e.g. where not time-based or task counters/identifiers).  In particular, the activity monitor measurements were considered more valuable than other measurements.  After careful analysis of the training dataset, I found 52 features with which to build the model.  Table 2 below lists the 52 features used:
+The features were chosen on the basis that the majority of its entries contained valid (i.e. non-empty/non-NA) values and that they were meaningful for prediction purposes (e.g. where not time-based or task counters/identifiers).  In particular, the activity monitor measurements were considered more valuable than other measurements.  Here are some examples:
+
+**Loading the raw training data set:**
+```{r chunk1, message=FALSE, cache=TRUE, echo=TRUE}
+trainingData <- read.table("data/pml-training.csv", header=TRUE, sep=c(','))
+```
+
+**A rejected feature:**
+```{r chunk2, message=FALSE, echo=TRUE}
+summary(trainingData$kurtosis_yaw_belt)
+```
+
+The rejected feature had many empty or invalid values (i.e. '#DIV/0!' values) which would not be very useful.  Similar features to this one were also exluded from consideration.
+
+**An accepted feature:**
+```{r chunk3, message=FALSE, echo=TRUE}
+summary(trainingData$total_accel_belt)
+```
+In contrast to the reject feature, the above feature had no invalid values.  These types of features were kept for consideration.
+
+After careful analysis of the training dataset, I found 52 features with which to build the model.  Table 2 below lists the 52 features used:
 
 <cite>Table 2. The 52 features used to build the model.</cite>
 <table cellpadding="5" border="1">
@@ -147,9 +167,7 @@ I had initially included 'user_name' (as a factor), but I removed it since it wo
 
 The R code below shows how the selected features were put together:
 
-```{r chunk1, message=FALSE, cache=TRUE, echo=TRUE}
-
-trainingData <- read.table("data/pml-training.csv", header=TRUE, sep=c(','))
+```{r chunk4, message=FALSE, cache=TRUE, echo=TRUE}
 
 # Convert the 'classe' values to factors
 trainingData$classe <- as.factor(trainingData$classe)
@@ -217,7 +235,7 @@ trainingData <- trainingData[c("classe",
 
 Next, I looked at whether the training set outcome values are well-balanced:
 
-```{r chunk2, echo=TRUE, message=FALSE}
+```{r chunk5, echo=TRUE, message=FALSE}
 table(trainingData$classe)
 ```
 
@@ -227,20 +245,26 @@ Given that a random forest algorithm will be used, reprocessing (e.g. to standar
 
 With the help of the *caret* package in R, a **random forest** algorithm (method="rf") was used to create a model to predict the 'classe' outcome in the testing dataset.
 
-```{r chunk3, message=FALSE, cache=TRUE, echo=TRUE}
+```{r chunk6, message=FALSE, cache=TRUE, echo=TRUE}
 
-set.seed(33422)
+set.seed(8008)
 
 library(caret)
 
 # Train random forest
 fitControl <- trainControl(method="oob")
-fit <- train(classe ~ ., data=trainingData, method="rf", ntree=5, trControl=fitControl)
-
+fit <- train(classe ~ ., data=trainingData, method="rf", ntree=5, trControl=fitControl, do.trace=TRUE)
 ```
 
 <p/>
-The *ntree* parameter was initially set higher, but for the purpose of this exercise (to predict the testing dataset values) an ntree of '5' gives the same answers as higher values of ntree (and it takes much less time to process).  In the next section, I discuss the *oob* sampling/cross-validation method set in the trainControl.
+The *ntree* parameter was initially set higher, but for the purpose of this exercise (to predict the testing dataset values) an ntree of '5' gives the same answers as higher values of ntree (and it takes much less time to process).
+
+<br/>
+<p/>
+
+### Cross-Validation
+
+The 'do.trace=TRUE' parameter to the train/randomForest function shown in the section above outputs the **test set (out of sample) error** after each iteration under the 'OOB' column.  In the next section, I discuss the final out of sample error and the *oob* sampling/cross-validation method that is set in the trainControl parameter.
 
 <br/>
 <p/>
@@ -248,10 +272,10 @@ The *ntree* parameter was initially set higher, but for the purpose of this exer
 
 ## Estimate of the out of sample error
 
-In the section entitled *"The oob error estimate"* at [http://www.stat.berkeley.edu/~breiman/RandomForests/cc_home.htm#ooberr](http://www.stat.berkeley.edu/~breiman/RandomForests/cc_home.htm#ooberr), Leo Breiman and Adele Cutler indicate that there is no need for cross-validation or a separate test set to get an unbiased estimte of the test set (out of sample) error as it is estimated internally.  As shown in the section above, the *oob* (out-of-bag estimates) method was selected in the **trainControl** function.  This sampling method replaces the need for explicit **cross-validation** when training a prediction model using random forest.
+In the section entitled *"The oob error estimate"* at [http://www.stat.berkeley.edu/~breiman/RandomForests/cc_home.htm#ooberr](http://www.stat.berkeley.edu/~breiman/RandomForests/cc_home.htm#ooberr), Leo Breiman and Adele Cutler indicate that there is no need for (external) cross-validation or a separate test set to get an unbiased estimte of the test set (out of sample) error as it is estimated internally.  As shown in the section above, the *oob* (out-of-bag estimates) method was selected in the **trainControl** function.  This sampling method replaces the need for explicit **cross-validation** when training a prediction model using random forest.
 
 Therefore, the estimate for the out of sample error obtained as:
-```{r chunk4,echo=TRUE,message=FALSE}
+```{r chunk7,echo=TRUE,message=FALSE}
 fit$finalModel$err.rate[[5,1]]
 ```
 
@@ -260,6 +284,4 @@ That is, the **out of sample error estimate is `r round(fit$finalModel$err.rate[
 
 <br/>
 <p/>
-
-
 
